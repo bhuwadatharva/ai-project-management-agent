@@ -1,0 +1,63 @@
+# Environment Configuration files (includes all directories)
+.env
+.env.*
+.env.example
+backend/.env
+backend/.env.*
+**/.*env
+**/.*env.*
+
+# Python builds & caching
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+pythonenv/
+
+# Databases (Local SQLite instances)
+*.db
+*.sqlite
+devpilot.db
+backend/devpilot.db
+
+# Logs
+*.log
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
