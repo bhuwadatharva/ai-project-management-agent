@@ -7,7 +7,7 @@ import RagTab from './components/RagTab';
 import ChatTab from './components/ChatTab';
 import MeetingsTab from './components/MeetingsTab';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_URL = 'https://ai-project-management-agent-7y2e.onrender.com/api';
 
 export default function App() {
   // Auth State
@@ -100,7 +100,7 @@ export default function App() {
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       ...options.headers
     };
-    
+
     try {
       const res = await fetch(url, { ...options, headers });
       if (res.status === 401) {
@@ -182,7 +182,7 @@ export default function App() {
     setAuthError('');
     const path = isLoginView ? '/auth/login' : '/auth/signup';
     const payload = isLoginView ? { email, password } : { email, password, name, role };
-    
+
     try {
       const res = await fetch(`${API_URL}${path}`, {
         method: 'POST',
@@ -193,7 +193,7 @@ export default function App() {
       if (!res.ok) {
         throw new Error(data.detail || 'Authentication failed');
       }
-      
+
       if (isLoginView) {
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('user', JSON.stringify(data.user));
@@ -259,18 +259,18 @@ export default function App() {
       priority: newTaskPriority,
       status: 'todo'
     };
-    
+
     const res = await fetchAPI('/tasks', {
       method: 'POST',
       body: JSON.stringify(payload)
     });
-    
+
     if (res) {
       setNewTaskTitle('');
       setNewTaskDesc('');
       setNewTaskAssignee('');
       loadTasks();
-      
+
       await fetchAPI('/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -371,7 +371,7 @@ export default function App() {
     if (!file) return;
     setUploadProgress(true);
     setUploadMessage('Uploading and parsing document contents...');
-    
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('project_id', selectedProjectId);
@@ -479,7 +479,7 @@ export default function App() {
 
   if (!token) {
     return (
-      <AuthScreen 
+      <AuthScreen
         isLoginView={isLoginView}
         setIsLoginView={setIsLoginView}
         email={email}
@@ -500,7 +500,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <Sidebar 
+      <Sidebar
         projects={projects}
         selectedProjectId={selectedProjectId}
         setSelectedProjectId={setSelectedProjectId}
@@ -511,7 +511,7 @@ export default function App() {
         newProjRepo={newProjRepo}
         setNewProjRepo={setNewProjRepo}
         onCreateProject={handleCreateProject}
-        
+
         newDevName={newDevName}
         setNewDevName={setNewDevName}
         newDevEmail={newDevEmail}
@@ -519,14 +519,14 @@ export default function App() {
         newDevRole={newDevRole}
         setNewDevRole={setNewDevRole}
         onRegisterDev={handleRegisterDev}
-        
+
         newSettingKey={newSettingKey}
         setNewSettingKey={setNewSettingKey}
         newSettingValue={newSettingValue}
         setNewSettingValue={setNewSettingValue}
         onUpdateSetting={handleUpdateSetting}
         settings={settings}
-        
+
         notifications={notifications}
         onReadNotification={handleReadNotification}
         user={user}
@@ -565,7 +565,7 @@ export default function App() {
 
         {/* Tab Components */}
         {activeTab === 'dashboard' && (
-          <DashboardTab 
+          <DashboardTab
             tasks={tasks}
             loadingSuggestions={loadingSuggestions}
             onGenerateSuggestions={handleGenerateSuggestions}
@@ -575,7 +575,7 @@ export default function App() {
         )}
 
         {activeTab === 'tasks' && (
-          <TasksTab 
+          <TasksTab
             newTaskTitle={newTaskTitle}
             setNewTaskTitle={setNewTaskTitle}
             newTaskDesc={newTaskDesc}
@@ -595,7 +595,7 @@ export default function App() {
         )}
 
         {activeTab === 'rag' && (
-          <RagTab 
+          <RagTab
             repoUrl={repoUrl}
             setRepoUrl={setRepoUrl}
             onIndexRepo={handleIndexRepo}
@@ -611,7 +611,7 @@ export default function App() {
         )}
 
         {activeTab === 'chat' && (
-          <ChatTab 
+          <ChatTab
             chatThread={chatThread}
             setChatThread={setChatThread}
             chatMessages={chatMessages}
@@ -625,7 +625,7 @@ export default function App() {
         )}
 
         {activeTab === 'meetings' && (
-          <MeetingsTab 
+          <MeetingsTab
             meetingTitle={meetingTitle}
             setMeetingTitle={setMeetingTitle}
             meetingNotes={meetingNotes}
@@ -635,7 +635,7 @@ export default function App() {
             meetingResult={meetingResult}
             onAddMeetingSuggestedTask={handleAddMeetingSuggestedTask}
             developers={developers}
-            
+
             sprintName={sprintName}
             setSprintName={setSprintName}
             sprintVelocity={sprintVelocity}

@@ -112,7 +112,7 @@ SQL initialization commands are available in [db_schema.sql](file:///d:/Website/
    ```bash
    python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
-   * REST Swagger docs are live at `http://localhost:8000/docs`.
+   * REST Swagger docs are live at `https://ai-project-management-agent-7y2e.onrender.com/docs`.
 3. **Start React Frontend**:
    ```bash
    cd frontend
