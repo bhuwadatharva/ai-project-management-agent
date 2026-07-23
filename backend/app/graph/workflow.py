@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
-from backend.app.agents.graph_state import AgentState
-from backend.app.agents.agent_definitions import (
+from app.agents.graph_state import AgentState
+from app.agents.agent_definitions import (
     supervisor_agent,
     planner_agent,
     repository_agent,

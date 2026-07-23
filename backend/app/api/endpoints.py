@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from langchain_core.messages import HumanMessage, AIMessage
 
-from backend.app.db.session import get_db, SessionLocal
-from backend.app.db.models import Project, Task, Developer, Document, Meeting, SprintReport, ChatHistory, User, Notification, SystemSetting
-from backend.app.schemas.schemas import (
+from app.db.session import get_db, SessionLocal
+from app.db.models import Project, Task, Developer, Document, Meeting, SprintReport, ChatHistory, User, Notification, SystemSetting
+from app.schemas.schemas import (
     ProjectCreate, ProjectUpdate, ProjectResponse,
     DeveloperCreate, DeveloperResponse,
     TaskCreate, TaskUpdate, TaskResponse,
@@ -23,13 +23,13 @@ from backend.app.schemas.schemas import (
     DocumentResponse, UserCreate, UserLogin, UserResponse, TokenResponse,
     NotificationResponse, SystemSettingCreate, SystemSettingResponse
 )
-from backend.app.config.settings import settings
-from backend.app.rag.vector_store import add_document_to_store, similarity_search
-from backend.app.utils.git_indexer import clone_and_index_repository
-from backend.app.utils.doc_loader import load_document
-from backend.app.agents.agent_definitions import get_llm, AIMessage
-from backend.app.graph.workflow import compiled_graph
-from backend.app.utils.auth_helper import hash_password, verify_password, sign_jwt, decode_jwt
+from app.config.settings import settings
+from app.rag.vector_store import add_document_to_store, similarity_search
+from app.utils.git_indexer import clone_and_index_repository
+from app.utils.doc_loader import load_document
+from app.agents.agent_definitions import get_llm, AIMessage
+from app.graph.workflow import compiled_graph
+from app.utils.auth_helper import hash_password, verify_password, sign_jwt, decode_jwt
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Header
 
@@ -531,7 +531,7 @@ Respond ONLY with valid JSON. No markdown code blocks.
             if developers:
                 try:
                     # Import embedding client helper to get vector embeddings
-                    from backend.app.rag.vector_store import get_embeddings_client
+                    from app.rag.vector_store import get_embeddings_client
                     embedder = get_embeddings_client()
                     
                     # Pre-calculate embeddings for registered developers (e.g. "Name is a Role")

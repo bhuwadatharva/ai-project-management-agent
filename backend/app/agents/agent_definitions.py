@@ -3,10 +3,10 @@ import re
 import logging
 from typing import List, Dict, Any
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from backend.app.config.settings import settings
-from backend.app.agents.graph_state import AgentState
-from backend.app.db.session import SessionLocal
-from backend.app.rag.vector_store import similarity_search
+from app.config.settings import settings
+from app.agents.graph_state import AgentState
+from app.db.session import SessionLocal
+from app.rag.vector_store import similarity_search
 
 logger = logging.getLogger(__name__)
 

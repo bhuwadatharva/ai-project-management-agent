@@ -3,9 +3,9 @@ import logging
 import json
 from sqlalchemy import text
 from typing import List, Dict, Any, Tuple
-from backend.app.config.settings import settings
-from backend.app.db.models import Document
-from backend.app.db.session import is_sqlite
+from app.config.settings import settings
+from app.db.models import Document
+from app.db.session import is_sqlite
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ def get_embeddings_client():
             from langchain_openai import OpenAIEmbeddings
             return OpenAIEmbeddings(
                 model=settings.EMBEDDING_MODEL or "text-embedding-3-small",
+                # pyrefly: ignore [unexpected-keyword]
                 openai_api_key=settings.OPENAI_API_KEY
             )
         except Exception as e:
@@ -42,6 +43,7 @@ def chunk_text(text_content: str, chunk_size: int = 1500, chunk_overlap: int = 2
     otherwise fallback to a custom character-based window.
     """
     try:
+        # pyrefly: ignore [missing-import]
         from langchain.text_splitter import RecursiveCharacterTextSplitter
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,

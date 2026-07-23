@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import logging
 from git import Repo
-from backend.app.rag.vector_store import add_document_to_store
+from app.rag.vector_store import add_document_to_store
 
 logger = logging.getLogger(__name__)
 
