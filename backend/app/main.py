@@ -27,7 +27,7 @@ app = FastAPI(
 # Configure CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], # Allow requests from React clients
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173","https://ai-project-management-agent-1.onrender.com"], # Allow requests from React clients
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
