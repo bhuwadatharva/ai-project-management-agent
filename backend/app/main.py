@@ -1,9 +1,9 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.config.settings import settings
-from backend.app.api.endpoints import router as api_router
-from backend.app.db.session import engine, Base
+from app.config.settings import settings
+from app.api.endpoints import router as api_router
+from app.db.session import engine, Base
 
 # Set up logging configuration
 logging.basicConfig(
