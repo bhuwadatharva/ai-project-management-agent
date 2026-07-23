@@ -1,6 +1,8 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
+import uuid
+
 
 # Developer Schemas
 class DeveloperBase(BaseModel):
@@ -12,7 +14,7 @@ class DeveloperCreate(DeveloperBase):
     pass
 
 class DeveloperResponse(DeveloperBase):
-    id: str
+    id: Union[str, uuid.UUID]
     created_at: datetime
 
     class Config:
@@ -35,7 +37,7 @@ class ProjectUpdate(BaseModel):
     status: Optional[str] = None
 
 class ProjectResponse(ProjectBase):
-    id: str
+    id: Union[str, uuid.UUID]
     created_at: datetime
 
     class Config:
@@ -58,8 +60,8 @@ class TaskAIAnalysis(BaseModel):
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
-    project_id: str
-    assigned_to: Optional[str] = None
+    project_id: Union[str, uuid.UUID]
+    assigned_to: Optional[Union[str, uuid.UUID]] = None
     priority: str = "medium"
     status: str = "todo"
 
@@ -75,7 +77,7 @@ class TaskUpdate(BaseModel):
     ai_analysis: Optional[Dict[str, Any]] = None
 
 class TaskResponse(TaskBase):
-    id: str
+    id: Union[str, uuid.UUID]
     ai_analysis: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
@@ -96,7 +98,7 @@ class DocumentCreate(DocumentBase):
     pass
 
 class DocumentResponse(DocumentBase):
-    id: str
+    id: Union[str, uuid.UUID]
     created_at: datetime
 
     class Config:
@@ -109,8 +111,8 @@ class MeetingNotesRequest(BaseModel):
     notes_text: str
 
 class MeetingResponse(BaseModel):
-    id: str
-    project_id: str
+    id: Union[str, uuid.UUID]
+    project_id: Union[str, uuid.UUID]
     title: str
     date: datetime
     notes_text: str
@@ -132,7 +134,7 @@ class SprintReportRequest(BaseModel):
     team_velocity: int = 0
 
 class SprintReportResponse(SprintReportRequest):
-    id: str
+    id: Union[str, uuid.UUID]
     recommendations: Optional[str] = None
     created_at: datetime
 
@@ -155,3 +157,56 @@ class HealthCheckResponse(BaseModel):
     database: str
     llm_configured: bool
     version: str
+
+# User Auth Schemas
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    name: Optional[str] = None
+    role: Optional[str] = "developer"
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: Union[str, uuid.UUID]
+    email: EmailStr
+    name: Optional[str] = None
+    role: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
+
+# Notification Schemas
+class NotificationResponse(BaseModel):
+    id: Union[str, uuid.UUID]
+    project_id: Union[str, uuid.UUID]
+    title: str
+    message: str
+    is_read: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Setting Schemas
+class SystemSettingCreate(BaseModel):
+    project_id: str
+    key: str
+    value: str
+
+class SystemSettingResponse(BaseModel):
+    id: Union[str, uuid.UUID]
+    project_id: Union[str, uuid.UUID]
+    key: str
+    value: str
+
+    class Config:
+        from_attributes = True

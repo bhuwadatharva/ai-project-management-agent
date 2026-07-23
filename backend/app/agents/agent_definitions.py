@@ -34,42 +34,7 @@ def get_llm():
         except Exception as e:
             logger.warning(f"Failed to initialize OpenAI model: {e}")
 
-    # Mock LLM for local sandbox
-    class MockLLM:
-        def invoke(self, messages):
-            last_msg = messages[-1].content if messages else ""
-            
-            # Simple heuristic mock responses based on message intent
-            if "jwt" in last_msg.lower():
-                content = """[Simulated AI Assistant Response]
-### Required Backend Files:
-- `backend/app/api/auth.py` (endpoints)
-- `backend/app/utils/security.py` (JWT helper)
-
-### Suggested Libraries:
-- PyJWT, passlib, bcrypt
-
-### Step-by-Step Roadmap:
-1. Create user register/login endpoints.
-2. Generate JWT token with HS256 algorithm.
-3. Add security schemes to verify headers.
-"""
-            elif "sprint" in last_msg.lower():
-                content = """[Simulated Sprint Report]
-### Completed Work:
-- Auth backend modules completed and tested.
-### Pending Work:
-- Frontend UI dashboard integration.
-### Velocity:
-- 15 Story Points.
-"""
-            else:
-                content = f"[Simulated response for: '{last_msg[:100]}']\n- The repository files look clean.\n- Ready to add implementation steps.\n- Best practice: Keep endpoints modular."
-                
-            return AIMessage(content=content)
-            
-    logger.warning("No Google or OpenAI API Key detected. Using mock chat client.")
-    return MockLLM()
+    raise ValueError("No valid LLM API key configured. Please set GOOGLE_API_KEY or OPENAI_API_KEY in your .env configuration.")
 
 llm = get_llm()
 

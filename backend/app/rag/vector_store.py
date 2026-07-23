@@ -34,19 +34,7 @@ def get_embeddings_client():
         except Exception as e:
             logger.warning(f"Failed to load OpenAI Embeddings: {e}")
             
-    # MockEmbeddings for local resilience when no keys are defined
-    class MockEmbeddings:
-        def embed_query(self, text: str) -> List[float]:
-            # Generate a pseudo-random deterministic vector based on text hashing
-            state = abs(hash(text)) % (2**32)
-            np.random.seed(state)
-            return np.random.uniform(-0.1, 0.1, 1536).tolist()
-
-        def embed_documents(self, texts: List[str]) -> List[List[float]]:
-            return [self.embed_query(t) for t in texts]
-
-    logger.warning("No Google or OpenAI API Key detected. Using mock embeddings client.")
-    return MockEmbeddings()
+    raise ValueError("No valid Embeddings API key configured. Please set GOOGLE_API_KEY or OPENAI_API_KEY in your .env configuration.")
 
 def chunk_text(text_content: str, chunk_size: int = 1500, chunk_overlap: int = 200) -> List[str]:
     """

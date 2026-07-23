@@ -3,13 +3,16 @@ import os
 import re
 import uuid
 import logging
+import tempfile
+import shutil
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from langchain_core.messages import HumanMessage, AIMessage
 
-from backend.app.db.session import get_db
-from backend.app.db.models import Project, Task, Developer, Document, Meeting, SprintReport, ChatHistory
+from backend.app.db.session import get_db, SessionLocal
+from backend.app.db.models import Project, Task, Developer, Document, Meeting, SprintReport, ChatHistory, User, Notification, SystemSetting
 from backend.app.schemas.schemas import (
     ProjectCreate, ProjectUpdate, ProjectResponse,
     DeveloperCreate, DeveloperResponse,
@@ -17,7 +20,8 @@ from backend.app.schemas.schemas import (
     MeetingNotesRequest, MeetingResponse,
     SprintReportRequest, SprintReportResponse,
     ChatRequest, ChatResponse, HealthCheckResponse,
-    DocumentResponse
+    DocumentResponse, UserCreate, UserLogin, UserResponse, TokenResponse,
+    NotificationResponse, SystemSettingCreate, SystemSettingResponse
 )
 from backend.app.config.settings import settings
 from backend.app.rag.vector_store import add_document_to_store, similarity_search
@@ -25,6 +29,11 @@ from backend.app.utils.git_indexer import clone_and_index_repository
 from backend.app.utils.doc_loader import load_document
 from backend.app.agents.agent_definitions import get_llm, AIMessage
 from backend.app.graph.workflow import compiled_graph
+from backend.app.utils.auth_helper import hash_password, verify_password, sign_jwt, decode_jwt
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Header
+
+security = HTTPBearer()
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -96,14 +105,104 @@ def health_check(db: Session = Depends(get_db)):
 
 from sqlalchemy import text
 
-# --- Authentication Placeholder ---
-@router.post("/auth/login")
-def login_placeholder():
+# --- Authentication Helpers & Dependency ---
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> User:
+    token = credentials.credentials
+    payload = decode_jwt(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token or expired session")
+    user = db.query(User).filter(User.id == payload.get("sub")).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+# --- Authentication endpoints ---
+@router.post("/auth/signup", response_model=UserResponse)
+def signup(user_in: UserCreate, db: Session = Depends(get_db)):
+    # Check if user already exists
+    existing = db.query(User).filter(User.email == user_in.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    hashed = hash_password(user_in.password)
+    db_user = User(
+        name=user_in.name,
+        email=user_in.email,
+        password_hash=hashed,
+        role=user_in.role or "developer"
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@router.post("/auth/login", response_model=TokenResponse)
+def login(user_in: UserLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == user_in.email).first()
+    if not user or not verify_password(user_in.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    
+    token = sign_jwt({"sub": str(user.id), "email": user.email, "role": user.role})
     return {
-        "access_token": "devpilot-token-placeholder",
+        "access_token": token,
         "token_type": "bearer",
-        "user": {"email": "admin@devpilot.ai", "role": "lead_engineer"}
+        "user": user
     }
+
+@router.post("/auth/logout")
+def logout():
+    return {"message": "Successfully logged out"}
+
+# --- Notifications ---
+@router.get("/notifications", response_model=List[NotificationResponse])
+def get_notifications(project_id: str, db: Session = Depends(get_db)):
+    return db.query(Notification).filter(Notification.project_id == project_id).order_by(Notification.created_at.desc()).all()
+
+@router.post("/notifications", response_model=NotificationResponse)
+def create_notification(project_id: str, title: str, message: str, db: Session = Depends(get_db)):
+    db_notif = Notification(project_id=project_id, title=title, message=message)
+    db.add(db_notif)
+    db.commit()
+    db.refresh(db_notif)
+    return db_notif
+
+@router.put("/notifications/{notif_id}/read", response_model=NotificationResponse)
+def mark_notification_as_read(notif_id: str, db: Session = Depends(get_db)):
+    db_notif = db.query(Notification).filter(Notification.id == notif_id).first()
+    if not db_notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    db_notif.is_read = 1
+    db.commit()
+    db.refresh(db_notif)
+    return db_notif
+
+# --- System Settings ---
+@router.get("/settings", response_model=List[SystemSettingResponse])
+def get_settings(project_id: str, db: Session = Depends(get_db)):
+    return db.query(SystemSetting).filter(SystemSetting.project_id == project_id).all()
+
+@router.post("/settings", response_model=SystemSettingResponse)
+def update_or_create_setting(setting_in: SystemSettingCreate, db: Session = Depends(get_db)):
+    existing = db.query(SystemSetting).filter(
+        SystemSetting.project_id == setting_in.project_id,
+        SystemSetting.key == setting_in.key
+    ).first()
+    
+    if existing:
+        existing.value = setting_in.value
+        db.commit()
+        db.refresh(existing)
+        return existing
+    else:
+        db_setting = SystemSetting(
+            project_id=setting_in.project_id,
+            key=setting_in.key,
+            value=setting_in.value
+        )
+        db.add(db_setting)
+        db.commit()
+        db.refresh(db_setting)
+        return db_setting
 
 # --- Projects ---
 @router.get("/projects", response_model=List[ProjectResponse])
@@ -326,6 +425,64 @@ def start_copilot_chat(chat_req: ChatRequest, db: Session = Depends(get_db)):
         logger.error(f"LangGraph execution failure: {e}")
         raise HTTPException(status_code=500, detail=f"AI Agent workflow encountered an error: {str(e)}")
 
+def heuristic_meeting_parser(notes_text: str, developers: list) -> dict:
+    sentences = re.split(r'[.!?\n]', notes_text)
+    suggested_tasks = []
+    action_items = []
+    
+    keywords = ["implement", "configure", "develop", "design", "connect", "update", "write", "build", "create", "test", "review"]
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence or len(sentence) < 15:
+            continue
+            
+        # Check if sentence has any of our action keywords
+        words = sentence.lower().split()
+        if any(kw in words for kw in keywords):
+            # Clean title
+            title = sentence
+            if len(title) > 60:
+                title = title[:60] + "..."
+                
+            priority = "High" if any(x in sentence.lower() for x in ["must", "immediately", "critical", "high", "soon"]) else "Medium"
+            
+            # Simple keyword matching for assignee name/role
+            matched_dev_id = None
+            matched_dev_name = None
+            for dev in developers:
+                if (dev.name.lower() in sentence.lower()) or (dev.role.lower() in sentence.lower()):
+                    matched_dev_id = dev.id
+                    matched_dev_name = dev.name
+                    break
+                    
+            suggested_tasks.append({
+                "title": title,
+                "description": sentence,
+                "priority": priority,
+                "assigned_to": str(matched_dev_id) if matched_dev_id else None,
+                "assignee": matched_dev_name
+            })
+            action_items.append(sentence)
+            
+    if not suggested_tasks:
+        suggested_tasks = [
+            {
+                "title": "Review HMS progression backlog items",
+                "description": "Inspect sync transcript for manual task addition.",
+                "priority": "Medium",
+                "assigned_to": None,
+                "assignee": None
+            }
+        ]
+        action_items = ["Review transcript manually."]
+        
+    return {
+        "summary": "Meeting notes parsed via Heuristic Backup Engine (LLM rate-limited).",
+        "action_items": action_items[:6],
+        "suggested_tasks": suggested_tasks[:6]
+    }
+
 # --- Meeting Notes Analysis ---
 @router.post("/meetings", response_model=MeetingResponse)
 def analyze_meeting_notes(req: MeetingNotesRequest, db: Session = Depends(get_db)):
@@ -333,16 +490,25 @@ def analyze_meeting_notes(req: MeetingNotesRequest, db: Session = Depends(get_db
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Query registered developers to pass to the AI model for capability matching
+    developers = db.query(Developer).all()
+    devs_text = "\n".join([f"- Name: {d.name}, Role: {d.role}, Email: {d.email}" for d in developers])
+
     llm = get_llm()
     prompt = f"""You are the Project Manager Agent. Please analyze the following meeting notes and summarize them.
 Title: "{req.title}"
 Notes content:
 "{req.notes_text}"
 
+Available team developers registered in our system:
+{devs_text or "No developers registered yet."}
+
+Based on the task requirements, matching technologies, and developer roles/capabilities, suggest the most capable developer to assign each task to by placing their Name or Email in the "assignee" field. If no matching developer is found, set it to null.
+
 Return a JSON block containing the following exact keys:
 1. summary (string summary of meeting)
 2. action_items (list of strings representing individual action items)
-3. suggested_tasks (list of dictionaries representing tasks that should be created, each with "title", "description", "priority" keys)
+3. suggested_tasks (list of dictionaries representing tasks that should be created, each with "title", "description", "priority", and "assignee" (the name/email of the developer assigned, or null) keys)
 
 Respond ONLY with valid JSON. No markdown code blocks.
 """
@@ -353,13 +519,84 @@ Respond ONLY with valid JSON. No markdown code blocks.
             content = re.sub(r"^```[a-zA-Z]*\n", "", content)
             content = re.sub(r"\n```$", "", content)
         data = json.loads(content)
+        
+        # Resolve AI-suggested assignee name/email or perform semantic matching using embeddings
+        suggested_tasks = data.get("suggested_tasks", [])
+        if suggested_tasks:
+            # Always ensure keys are present in JSON response
+            for task_dict in suggested_tasks:
+                task_dict["assigned_to"] = None
+                task_dict["assignee"] = None
+                
+            if developers:
+                try:
+                    # Import embedding client helper to get vector embeddings
+                    from backend.app.rag.vector_store import get_embeddings_client
+                    embedder = get_embeddings_client()
+                    
+                    # Pre-calculate embeddings for registered developers (e.g. "Name is a Role")
+                    dev_texts = [f"{d.name} {d.role}" for d in developers]
+                    dev_embs = embedder.embed_documents(dev_texts)
+                    
+                    for task_dict in suggested_tasks:
+                        ai_assignee = task_dict.get("assignee")
+                        matched_dev_id = None
+                        
+                        # 1. Direct match by name/email if specified
+                        if ai_assignee:
+                            ai_assignee_clean = str(ai_assignee).lower().strip()
+                            for dev in developers:
+                                if (ai_assignee_clean in dev.name.lower()) or (ai_assignee_clean == dev.email.lower()):
+                                    matched_dev_id = dev.id
+                                    break
+                                    
+                        # 2. Semantic match by cosine similarity using text embeddings
+                        if not matched_dev_id:
+                            task_text = f"{task_dict.get('title', '')} {task_dict.get('description', '')}"
+                            task_emb = embedder.embed_query(task_text)
+                            
+                            best_sim = -1.0
+                            best_dev_id = None
+                            for dev_idx, dev in enumerate(developers):
+                                dev_emb = dev_embs[dev_idx]
+                                
+                                q_vec = np.array(task_emb)
+                                d_vec = np.array(dev_emb)
+                                q_norm = np.linalg.norm(q_vec)
+                                d_norm = np.linalg.norm(d_vec)
+                                
+                                if q_norm > 0 and d_norm > 0:
+                                    sim = float(np.dot(q_vec, d_vec) / (q_norm * d_norm))
+                                    if sim > best_sim:
+                                        best_sim = sim
+                                        best_dev_id = dev.id
+                            
+                            # Assign to closest matched developer if one was found
+                            if best_sim > -1.0:
+                                matched_dev_id = best_dev_id
+                                
+                        # Update database task structure
+                        task_dict["assigned_to"] = str(matched_dev_id) if matched_dev_id else None
+                        
+                        # Also update/populate the 'assignee' field for the frontend view
+                        matched_dev = next((d for d in developers if d.id == matched_dev_id), None)
+                        task_dict["assignee"] = matched_dev.name if matched_dev else None
+                except Exception as match_err:
+                    logger.error(f"Semantic developer mapping failed: {match_err}")
+                    # Fallback to simple name matching
+                    for task_dict in suggested_tasks:
+                        ai_assignee = task_dict.get("assignee")
+                        matched_dev_id = None
+                        if ai_assignee:
+                            ai_assignee_clean = str(ai_assignee).lower().strip()
+                            for dev in developers:
+                                if (ai_assignee_clean in dev.name.lower()) or (ai_assignee_clean == dev.email.lower()):
+                                    matched_dev_id = dev.id
+                                    break
+                        task_dict["assigned_to"] = str(matched_dev_id) if matched_dev_id else None
     except Exception as e:
-        logger.error(f"Failed to analyze meeting notes: {e}")
-        data = {
-            "summary": "Meeting notes captured.",
-            "action_items": ["Review captured transcript manually."],
-            "suggested_tasks": []
-        }
+        logger.error(f"Failed to analyze meeting notes via LLM (running offline heuristic parsing): {e}")
+        data = heuristic_meeting_parser(req.notes_text, developers)
 
     db_meeting = Meeting(
         project_id=req.project_id,

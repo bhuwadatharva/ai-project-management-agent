@@ -60,6 +60,8 @@ class Project(Base):
     meetings = relationship("Meeting", back_populates="project", cascade="all, delete-orphan")
     sprint_reports = relationship("SprintReport", back_populates="project", cascade="all, delete-orphan")
     chat_histories = relationship("ChatHistory", back_populates="project", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="project", cascade="all, delete-orphan")
+    settings = relationship("SystemSetting", back_populates="project", cascade="all, delete-orphan")
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -133,3 +135,35 @@ class ChatHistory(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     project = relationship("Project", back_populates="chat_histories")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(255), nullable=True)
+    email = Column(String(255), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(100), default="developer")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    is_read = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    project = relationship("Project", back_populates="notifications")
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    key = Column(String(255), nullable=False)
+    value = Column(Text, nullable=False)
+
+    project = relationship("Project", back_populates="settings")

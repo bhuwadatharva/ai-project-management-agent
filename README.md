@@ -1,13 +1,14 @@
-# DevPilot AI – AI Engineering Project Manager MVP
+# DevPilot AI – AI Engineering Project Manager
 
-DevPilot AI is a production-quality engineering project manager co-pilot. Instead of functioning as a simple Jira replacement, it leverages a **LangGraph multi-agent workflow** to perform repository search, source-code analysis, document-based RAG, task planning, code recommendations, automated testing checklists, meeting transcripts action-item parsing, and sprint summaries recommendations.
+DevPilot AI is a production-quality engineering project manager co-pilot. It leverages a **LangGraph multi-agent workflow** to perform repository search, source-code analysis, document-based RAG, task planning, code recommendations, automated testing checklists, meeting transcripts action-item parsing, and sprint summaries recommendations.
+
+The front-end has been completely migrated from Streamlit to a modern, premium **React + Vite** SPA.
 
 ---
 
-## Architecture Overview
+## 1. Project Architecture
 
-### LangGraph Multi-Agent Collaboration Workflow
-The AI orchestration is structured as a hub-and-spoke model. The **Supervisor Agent** evaluates incoming prompts, checks context, and routes control flow.
+The architecture consists of a FastAPI REST server backend and a React (Vite) client frontend.
 
 ```mermaid
 graph TD
@@ -29,186 +30,155 @@ graph TD
     Supervisor -->|Task Complete| Finish([Compile Final Response])
 ```
 
-1. **Supervisor Agent**: The gatekeeper. Evaluates inputs and histories to determine routing target or completes iteration (`FINISH`).
-2. **Planner Agent**: Generates task summaries, technology stacks, difficulty ratings, folder architectures, and step-by-step roadmap guides.
-3. **Repository Agent**: Performs similarity searches on code chunks stored in the vector database and identifies implementation points.
-4. **RAG Agent**: Retrieves context from uploaded manuals, technical specifications, and general files (PDF, DOCX, TXT, MD).
-5. **Coding Assistant**: Generates Python, JS, or framework templates, unit tests, and structural updates.
-6. **Reviewer Agent**: Checks proposed plans/code scripts for security, design patterns, and bugs.
-7. **Project Manager Agent**: Automates action item generation from transcripts, schedules backlog tasks, and estimates sprint risk metrics.
+1. **Supervisor Agent**: The orchestrator. Routes to nodes based on user intent and completes execution (`FINISH`).
+2. **Planner Agent**: Generates task roadmaps, estimates, and suggested folder structures.
+3. **Repository Agent**: Performs vector-based similarity searches on index codebase chunks.
+4. **RAG Agent**: Retrieves context from uploaded documentation.
+5. **Coding Assistant**: Generates code implementations and test suites.
+6. **Reviewer Agent**: Audits generated code for safety, security, and quality.
+7. **Project Manager Agent**: Handles tasks updates, meeting transcripts, and sprint summaries.
 
 ---
 
-## Folder Structure
+## 2. Environment Variables Guide
 
-```text
-aiagentprac/
-├── backend/
-│   ├── app/
-│   │   ├── agents/
-│   │   │   ├── agent_definitions.py    # Multi-agent definitions & LLM selection
-│   │   │   └── graph_state.py          # State dictionary schema
-│   │   ├── api/
-│   │   │   └── endpoints.py            # REST routers
-│   │   ├── config/
-│   │   │   └── settings.py             # Settings configurations via Pydantic
-│   │   ├── db/
-│   │   │   ├── models.py               # SQLAlchemy schemas
-│   │   │   └── session.py              # DB Pool session makers
-│   │   ├── graph/
-│   │   │   └── workflow.py             # LangGraph stategraph compilation
-│   │   ├── rag/
-│   │   │   └── vector_store.py         # RAG chunking & Pgvector/SQLite similarity
-│   │   ├── schemas/
-│   │   │   └── schemas.py              # Pydantic validation schemas
-│   │   ├── utils/
-│   │   │   ├── doc_loader.py           # file extraction (pdf, docx, md, txt)
-│   │   │   └── git_indexer.py          # Git repository scanner
-│   │   └── main.py                     # Uvicorn entrypoint
-│   └── pyproject.toml                  # Python dependency configuration
-├── frontend/
-│   └── app.py                          # Streamlit application UI
-├── .env.example                        # Key placeholders
-├── db_schema.sql                       # Postgres Supabase schema
-├── verify_setup.py                     # Self-checking verification test
-└── README.md                           # Documentation
-```
+Copy `.env.example` to `.env` and configure the following variables:
 
----
-
-## Setup & Local Installation
-
-### Prerequisites
-- Python 3.12+
-- `uv` installed (`pip install uv` or `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`)
-- Git
-
-### 1. Configure Keys
-Duplicate the environment template and name it `.env`:
 ```bash
-cp .env.example .env
-```
-Fill out at least one LLM API key:
-- `GOOGLE_API_KEY` (Gemini model defaults to `gemini-2.5-flash`)
-- `OPENAI_API_KEY` (OpenAI model defaults to `gpt-4o-mini`)
+# LLM Provider Keys
+OPENAI_API_KEY=your-openai-api-key        # Required for OpenAI models
+GOOGLE_API_KEY=your-google-api-key        # Required for Gemini models
 
-*Note: If no API keys are supplied, the backend falls back to a deterministic simulated mock engine. This enables verification and testing of the MVP without external credentials.*
+# Database Config
+DATABASE_URL=sqlite:///./devpilot.db      # Fallback to local SQLite if left blank
+# For Supabase/PostgreSQL, configure:
+# DATABASE_URL=postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres
 
-### 2. Verify Setup
-Run the automated validation script using `uv`:
-```bash
-uv run verify_setup.py
+# Supabase (Optional)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-supabase-anon-key
+
+# GitHub Token
+GITHUB_TOKEN=github_pat_...               # Optional, for private repository cloning
+
+# Model Configurations
+EMBEDDING_MODEL=text-embedding-3-small
+CHAT_MODEL=gpt-4o-mini
 ```
-This script confirms:
-- Python environment load.
-- SQLAlchemy database connection and table layout.
-- LangGraph graph compilation.
-- REST router mock runs.
 
 ---
 
-## How to Run Locally
+## 3. Database Schema Guide
 
-### Start Backend REST APIs
-From the root workspace folder:
-```bash
-uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-API Documentation will be live at:
-- Swagger Docs: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+The database schema supports both SQLite (fallback mode) and PostgreSQL/Supabase (active mode). Enable the `vector` extension in PostgreSQL to enable pgvector.
 
-### Start Streamlit Frontend
-In a new terminal shell:
-```bash
-uv run streamlit run frontend/app.py --server.port 8501
-```
-The User Interface will open at http://localhost:8501.
+### Table Definitions
+1. **`users`**: Manages secure user registry.
+2. **`developers`**: Stores team members' roles and names.
+3. **`projects`**: Manages project workspaces.
+4. **`tasks`**: Tracks status, priorities, and generated AI architecture analyses.
+5. **`documents`**: Ingests document and codebase text chunks with vector embeddings.
+6. **`meetings`**: Captures summaries and extracted action items.
+7. **`sprint_reports`**: Compiles metrics and recommendations.
+8. **`chat_history`**: Persists conversation context.
+9. **`notifications`**: Holds unread notifications.
+10. **`system_settings`**: Stores configuration key-value pairs.
 
----
-
-## How LangGraph and RAG Work
-
-### How LangGraph Works
-The workflow compiles the agent connections in `backend/app/graph/workflow.py`. The state holds `messages`, `agent_visited` list, `repo_context`, `kb_context`, `plan`, and `suggestions`. Each node represents a function that manipulates state.
-Once a node finishes, control goes back to `supervisor`, which routes either to the next specialized node or stops (`END`).
-
-### How RAG Works
-- **Ingestion**: Documents are parsed (`doc_loader.py`), split into overlapping chunks, embedded, and saved in the `documents` table.
-- **Git Ingestion**: Source code directories are crawled (`git_indexer.py`), filtered by extension, chunked, and saved in the `documents` table.
-- **Search**: During query times, the system computes the query's vector embedding, performs a pgvector cosine similarity index query in Postgres (or NumPy similarity fallback on SQLite), and presents the top matches as context inside the Prompt.
+SQL initialization commands are available in [db_schema.sql](file:///d:/Website/aiagentprac/db_schema.sql).
 
 ---
 
-## How to Add New Agents
+## 4. Installation & Run Guide
 
-Adding a new agent is simple and modular:
-1. **Define State Fields**: If the agent needs specific state fields, add them to `AgentState` in `backend/app/agents/graph_state.py`.
-2. **Define Agent Node**: Create a node function in `backend/app/agents/agent_definitions.py`. It should accept `AgentState` and return updates:
-   ```python
-   def devops_agent(state: AgentState) -> dict:
-       # Run logic / LLM query
-       return {"suggestions": "devops recommendations", "agent_visited": state["agent_visited"] + ["DevOps"]}
+### Installation
+1. Clone the repository.
+2. Make sure Python 3.12+ and Node.js are installed.
+3. Install backend dependencies using python/pip:
+   ```bash
+   pip install -r backend/pyproject.toml # or use uv
    ```
-3. **Register Node & Routes**: Edit `backend/app/graph/workflow.py`:
-   - Register node: `workflow.add_node("devops", devops_agent)`
-   - Add routes from supervisor:
-     ```python
-     workflow.add_conditional_edges("supervisor", ..., {..., "DEVOPS": "devops"})
-     ```
-   - Connect edge back: `workflow.add_edge("devops", "supervisor")`
-4. **Update Supervisor Instructions**: Update the prompt in `supervisor_agent` (in `backend/app/agents/agent_definitions.py`) instructing it when to route to `DEVOPS`.
+4. Install frontend dependencies:
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+### Running Locally
+1. **Verify setup**:
+   ```bash
+   python verify_setup.py
+   ```
+2. **Start Backend**:
+   ```bash
+   python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+   * REST Swagger docs are live at `http://localhost:8000/docs`.
+3. **Start React Frontend**:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+   * Frontend will open at `http://localhost:5173`.
 
 ---
 
-## API Documentation
+## 5. API Documentation
 
-### Projects
-- `GET /api/projects` - List all projects.
-- `POST /api/projects` - Create a project.
+### Authentication
+* `POST /api/auth/signup` - Registers a new user.
+* `POST /api/auth/login` - Signs in a user and returns a token.
+* `POST /api/auth/logout` - Logs out a user session.
 
 ### Tasks
-- `GET /api/tasks?project_id={id}` - List all tasks.
-- `POST /api/tasks` - Create a task. **Generates AI analysis automatically**.
-- `PUT /api/tasks/{task_id}` - Update a task status/priority.
-- `DELETE /api/tasks/{task_id}` - Delete a task.
+* `GET /api/tasks?project_id={id}` - Retrieve tasks.
+* `POST /api/tasks` - Create a task and dynamically run AI analysis.
+* `PUT /api/tasks/{task_id}` - Update status or priority.
+* `DELETE /api/tasks/{task_id}` - Delete a task.
 
-### Repository
-- `POST /api/repository/index` - Clone/Scan Git repository (runs in background task).
-- `GET /api/repository/query` - Semantic code search.
+### Repository Search & Upload
+* `POST /api/repository/index` - Clone and index git repository.
+* `GET /api/repository/query` - Semantic code vector search.
+* `POST /api/kb/upload` - Upload PDF, Docx, MD, or TXT documents.
 
-### Knowledge Base
-- `POST /api/kb/upload` - Upload PDF, Docx, MD, TXT for RAG.
-
-### Chat
-- `POST /api/chat` - Start conversation with multi-agent LangGraph workflow.
+### Chat & Copilot
+* `POST /api/chat` - Route chat query through LangGraph workflow.
 
 ### Sprints & Meetings
-- `POST /api/meetings` - Extract action items and suggested tasks.
-- `POST /api/sprint/report` - Formulate sprint summary and recommendations.
+* `POST /api/meetings` - Extract action items from notes.
+* `POST /api/sprint/report` - Generate sprint recommendations.
+
+### Notifications & Settings
+* `GET /api/notifications` - Retrieve unread notifications.
+* `PUT /api/notifications/{id}/read` - Mark notification as read.
+* `POST /api/settings` - Create or update project key-value settings.
 
 ---
 
-## Deployment Guide
+## 6. Testing & Deployment Guide
 
-### Database (Supabase)
-1. Register on [Supabase](https://supabase.com/).
-2. Create a new PostgreSQL Database.
-3. Open the SQL Editor, copy and run the contents of [db_schema.sql](file:///d:/Website/aiagentprac/db_schema.sql) to set up tables.
-4. Copy the connection string under DB Settings.
-5. In your production `.env`, set `DATABASE_URL` to your Supabase PostgreSQL connection URI.
+### Testing
+* Run `python verify_setup.py` to run automated connection and graph compilation tests.
+* Build the React frontend with `npm run build` to ensure there are no compilation warnings or errors.
 
-### Backend Hosting (Render / Docker)
-Add a standard Dockerfile to backend:
-```dockerfile
-FROM python:3.12-slim
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
-WORKDIR /app
-COPY backend/ /app/
-RUN uv sync --no-dev
-EXPOSE 8000
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+### Deployment
+* **Database**: Set up a PostgreSQL database on Supabase. Copy `db_schema.sql` into the SQL Editor, execute it, and update `DATABASE_URL` in your env.
+* **Backend**: Deploy the FastAPI server to Render, Heroku, or AWS ECS. Configure env vars.
+* **Frontend**: Deploy the React build outputs to Vercel, Netlify, or AWS S3.
 
-### Frontend Hosting (Streamlit Cloud)
-Connect your GitHub repository to Streamlit Cloud, configure Environment Variables in the UI Settings panel pointing `API_URL` to your deployed backend URL, and set the entrypoint path to `frontend/app.py`.
+---
+
+## 7. Known Issues & Fallbacks
+* **No external LLM key**: If no `GOOGLE_API_KEY` or `OPENAI_API_KEY` is configured, the application falls back to a deterministic Mock LLM. The AI agents will mock responses based on query intents.
+* **Supabase database unavailable**: The system automatically redirects queries to the local SQLite database (`devpilot.db`) to ensure the application remains fully functional offline.
+
+---
+
+## 8. Final Feature Checklist
+- [x] JWT Token Verification & User Auth
+- [x] Multi-Agent Orchestrator (LangGraph)
+- [x] Vector Database Search & Chunk Fallbacks
+- [x] Project Backlog Task CRUD
+- [x] Meeting action items extraction
+- [x] Sprint velocity recommendations
+- [x] File Upload & PDF/DOCX Parsing
+- [x] Real-time Notifications & Settings
